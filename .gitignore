@@ -1,0 +1,22 @@
+# Node
+node_modules/
+npm-debug.log
+package-lock.json
+
+# Android/Capacitor
+android/build/
+android/app/build/
+capacitor.config.json
+
+# macOS & Windows
+.DS_Store
+Thumbs.db
+
+# WebStorm / JetBrains IDEs
+www/.idea/
+
+# Output / Backup
+*.log
+
+# Optional: exportierte JSON-Daten
+inventar_export.json

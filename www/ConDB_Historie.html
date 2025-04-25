@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Bestell-Historie</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          padding: 20px;
+        }
+
+        h1 {
+          text-align: center;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-top: 20px;
+        }
+
+        th, td {
+          border: 1px solid #ccc;
+          padding: 8px;
+          text-align: center;
+        }
+
+        th {
+          background-color: #f4f4f4;
+        }
+
+        .actions {
+          margin-top: 20px;
+          text-align: center;
+        }
+
+        button {
+          margin: 5px;
+          padding: 10px 20px;
+          font-size: 16px;
+          cursor: pointer;
+        }
+
+        .delete-button {
+          color: white;
+          background-color: #e53935;
+          border: none;
+        }
+
+        .export-button {
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Bestell-Historie</h1>
+<div id="history"></div> <!-- ❗️Fehlte bisher -->
+<div class="actions">
+    <button class="delete-button" onclick="clearAll()">🗑 Alles löschen</button>
+    <button class="export-button" onclick="exportHistory()">📤 Exportieren</button>
+</div>
+<script>
+    function loadHistory() {
+  const data = JSON.parse(localStorage.getItem("bestellungen") || "[]");
+  const div = document.getElementById("history");
+  div.innerHTML = "";
+
+  data.slice().reverse().forEach(bestellung => {
+    const box = document.createElement("div");
+    const datum = new Date(bestellung.datum).toLocaleString();
+
+    box.innerHTML = `
+      <h3>Bestellung #${bestellung.id} – ${datum} (${bestellung.ort})</h3>
+      <ul>
+        ${bestellung.artikel.map(a =>
+          `<li>${a.name} – Menge: ${a.menge} – Preis: ${(a.preis * a.menge).toFixed(2)} €</li>`
+        ).join("")}
+      </ul>
+    `;
+    div.appendChild(box);
+  });
+}
+
+    function deleteEntry(index) {
+      let data = JSON.parse(localStorage.getItem("bestellungen") || "[]");
+      data.splice(index, 1);
+      localStorage.setItem("bestellungen", JSON.stringify(data));
+      loadHistory();
+    }
+
+    function clearAll() {
+      if (confirm("Willst du wirklich alle Einträge löschen?")) {
+        localStorage.removeItem("bestellungen");
+        loadHistory();
+      }
+    }
+
+    function exportHistory() {
+      const data = localStorage.getItem("bestellungen") || "[]";
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bestellungen_export.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+</script>
+<script src="navigation.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", loadHistory);
+</script>
+</body>
+</html>

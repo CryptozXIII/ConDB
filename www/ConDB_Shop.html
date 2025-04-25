@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shop</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding-bottom: 80px; /* Platz für Navigation */
+        }
+        .container {
+          padding: 20px;
+        }
+        .ort-container {
+          margin-bottom: 20px;
+        }
+        .barcode-container input {
+          width: 100%;
+          font-size: 24px;
+          padding: 10px;
+        }
+        .scanned-list {
+          margin-top: 20px;
+        }
+        .scanned-list li {
+          margin: 8px 0;
+        }
+        .actions {
+          text-align: center;
+          margin-top: 30px;
+        }
+        .ok-button {
+          width: 250px;
+          height: 250px;
+          font-size: 50px;
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 50%;
+          cursor: pointer;
+        }
+        .cancel-button {
+          margin-top: 20px;
+          background-color: #f44336;
+          color: white;
+          font-size: 18px;
+          border: none;
+          padding: 10px 20px;
+          cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="ort-container">
+        <label for="ortInput"><strong>Ort / Messe:</strong></label>
+        <input type="text" id="ortInput" placeholder="z. B. Dokomi" oninput="saveOrt()">
+    </div>
+
+    <div class="barcode-container">
+        <input type="text" id="barcodeInput" placeholder="Barcode eingeben und Enter drücken..." onkeyup="checkBarcode(event)">
+    </div>
+
+    <ul id="scannedList" class="scanned-list"></ul>
+    <p><strong>Gesamtsumme:</strong> <span id="totalPrice">0.00</span> €</p>
+
+    <div class="actions">
+        <button class="ok-button" onclick="submitBestellung()">OK</button><br>
+        <button class="cancel-button" onclick="cancel()">Abbrechen</button>
+    </div>
+</div>
+
+<script>
+    let scannedItems = {};
+
+    function saveOrt() {
+      const ort = document.getElementById("ortInput").value;
+      localStorage.setItem("messeOrt", ort);
+    }
+
+    function loadOrt() {
+      const ort = localStorage.getItem("messeOrt");
+      if (ort) {
+        document.getElementById("ortInput").value = ort;
+      }
+    }
+
+    function checkBarcode(event) {
+      if (event.key === "Enter") {
+        const barcode = event.target.value.trim();
+        if (!barcode) return;
+
+        const inventar = JSON.parse(localStorage.getItem("inventar") || "[]");
+        const artikel = inventar.find(a => a.barcode === barcode);
+
+        if (!artikel) {
+          alert("⚠️ Kein Artikel mit diesem Barcode gefunden!");
+          return;
+        }
+
+        if (scannedItems[barcode]) {
+          scannedItems[barcode].menge++;
+        } else {
+          scannedItems[barcode] = {
+            name: artikel.item,
+            menge: 1,
+            preis: artikel.preis
+          };
+        }
+
+        updateScannedList();
+        event.target.value = "";
+      }
+    }
+
+    function updateScannedList() {
+      const list = document.getElementById("scannedList");
+      list.innerHTML = "";
+      let total = 0;
+
+      Object.entries(scannedItems).forEach(([barcode, data]) => {
+        const li = document.createElement("li");
+        const gesamt = data.menge * data.preis;
+        total += gesamt;
+        li.textContent = `${data.name} – Menge: ${data.menge} – Gesamt: ${gesamt.toFixed(2)} €`;
+        list.appendChild(li);
+      });
+
+      document.getElementById("totalPrice").textContent = total.toFixed(2);
+    }
+
+    function submitBestellung() {
+  const ort = document.getElementById("ortInput").value.trim();
+  if (!ort) {
+    alert("Bitte gib den Ort der Messe ein.");
+    return;
+  }
+
+  if (Object.keys(scannedItems).length === 0) {
+    alert("Es wurden keine Artikel gescannt.");
+    return;
+  }
+
+  const datum = new Date().toISOString();
+  const bestellungen = JSON.parse(localStorage.getItem("bestellungen") || "[]");
+
+  const neueBestellung = {
+    id: bestellungen.length + 1,
+    ort: ort,
+    datum: datum,
+    artikel: Object.values(scannedItems).map(item => ({
+      name: item.name,
+      menge: item.menge,
+      preis: item.preis
+    }))
+  };
+
+  // Speichern in Historie
+  bestellungen.push(neueBestellung);
+  localStorage.setItem("bestellungen", JSON.stringify(bestellungen));
+
+  // Bestand im Inventar anpassen
+  let inventar = JSON.parse(localStorage.getItem("inventar") || "[]");
+  Object.entries(scannedItems).forEach(([barcode, data]) => {
+    const item = inventar.find(i => i.barcode === barcode);
+    if (item) {
+      item.anzahl = Math.max(0, item.anzahl - data.menge);
+    }
+  });
+  localStorage.setItem("inventar", JSON.stringify(inventar));
+
+  alert("✅ Bestellung gespeichert & Bestand aktualisiert.");
+  scannedItems = {};
+  updateScannedList();
+}
+
+    function cancel() {
+      if (confirm("Einkauf abbrechen und alles zurücksetzen?")) {
+        scannedItems = {};
+        updateScannedList();
+        document.getElementById("barcodeInput").value = "";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadOrt);
+</script>
+
+<!-- Navigation -->
+<script src="navigation.js"></script>
+</body>
+</html>

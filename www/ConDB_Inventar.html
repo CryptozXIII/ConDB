@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventar</title>
+
+  <!-- Import Capacitor Preferences -->
+  <script>
+    window.Storage = Capacitor.Plugins.Preferences;
+  </script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding-bottom: 100px;
+    }
+    .topbar {
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .topbar button {
+      background: #444;
+      color: white;
+      border: none;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .filter {
+      margin: 15px;
+      display: flex;
+      gap: 10px;
+    }
+    input[type="text"], input[type="number"], input[type="file"] {
+      padding: 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 8px;
+      border: 1px solid #ccc;
+      text-align: center;
+    }
+    img {
+      width: 50px;
+      height: auto;
+    }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background: white;
+      margin: 10% auto;
+      padding: 20px;
+      width: 90%;
+      max-width: 400px;
+    }
+    .modal-content label {
+      display: block;
+      margin: 10px 0 5px;
+    }
+    .modal-content input {
+      width: 100%;
+    }
+    .modal-content button {
+      margin-top: 15px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="topbar">
+  <button onclick="openModal()">➕ Artikel hinzufügen</button>
+  <div>
+    <button onclick="exportInventar()">📤 Export</button>
+    <label style="cursor:pointer;">
+      📥 Import
+      <input type="file" id="importFile" style="display:none" accept=".json" onchange="importInventar(this)">
+    </label>
+    <label>
+      <input type="checkbox" id="overrideCheckbox">
+      Bestehende Anzahl überschreiben
+    </label>
+  </div>
+</div>
+
+<div class="filter">
+  <input type="text" id="filterName" placeholder="🔍 Artikelname" oninput="renderInventar()">
+  <input type="text" id="filterKategorie" placeholder="🔍 Kategorie" oninput="renderInventar()">
+</div>
+
+<table>
+  <thead>
+  <tr>
+    <th>Item</th>
+    <th>Kategorie</th>
+    <th>Anzahl</th>
+    <th>Preis</th>
+    <th>Barcode</th>
+    <th>Bild</th>
+    <th>Aktionen</th>
+  </tr>
+  </thead>
+  <tbody id="inventarTabelle"></tbody>
+</table>
+
+<!-- MODAL -->
+<div id="itemModal" class="modal">
+  <div class="modal-content">
+    <h3 id="modalTitle">Artikel hinzufügen</h3>
+    <input type="hidden" id="itemId">
+    <label>Item:</label>
+    <input type="text" id="itemName" required>
+    <label>Kategorie:</label>
+    <input type="text" id="itemKategorie" required>
+    <label>Anzahl:</label>
+    <input type="number" id="itemAnzahl" required>
+    <label>Preis:</label>
+    <input type="number" id="itemPreis" required>
+    <label>Barcode:</label>
+    <input type="text" id="itemBarcode">
+    <label>Bild:</label>
+    <input type="file" id="itemBild" accept="image/*" onchange="handleBild(this)">
+    <img id="bildPreview" style="display:none; width:100px; margin-top:10px;">
+    <br>
+    <button type="button" onclick="saveItem()">💾 Speichern</button>
+    <button type="button" onclick="closeModal()">❌ Abbrechen</button>
+  </div>
+</div>
+
+<script type="module">
+
+  async function openModal(item = null) {
+    document.getElementById("itemModal").style.display = "block";
+    document.getElementById("modalTitle").textContent = item ? "Artikel bearbeiten" : "Artikel hinzufügen";
+
+    if (item) {
+      document.getElementById("itemId").value = item.id;
+      document.getElementById("itemName").value = item.item;
+      document.getElementById("itemKategorie").value = item.kategorie;
+      document.getElementById("itemAnzahl").value = item.anzahl;
+      document.getElementById("itemPreis").value = item.preis;
+      document.getElementById("itemBarcode").value = item.barcode;
+      bildBase64 = item.thumbnail || "";
+      if (bildBase64) {
+        document.getElementById("bildPreview").src = bildBase64;
+        document.getElementById("bildPreview").style.display = "block";
+      }
+    } else {
+      document.getElementById("itemId").value = "";
+      document.getElementById("itemName").value = "";
+      document.getElementById("itemKategorie").value = "";
+      document.getElementById("itemAnzahl").value = "";
+      document.getElementById("itemPreis").value = "";
+      document.getElementById("itemBarcode").value = "";
+      bildBase64 = "";
+      document.getElementById("bildPreview").style.display = "none";
+    }
+  }window.openModal = openModal;
+
+  function closeModal() {
+    document.getElementById("itemModal").style.display = "none";
+  }window.closeModal = closeModal;
+
+  let bildBase64 = "";
+
+  function handleBild(input) {
+    const file = input.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        bildBase64 = e.target.result;
+        document.getElementById("bildPreview").src = bildBase64;
+        document.getElementById("bildPreview").style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  async function saveItem() {
+    const id = document.getElementById("itemId").value || Date.now();
+    const item = {
+      id: Number(id),
+      item: document.getElementById("itemName").value,
+      kategorie: document.getElementById("itemKategorie").value,
+      anzahl: parseInt(document.getElementById("itemAnzahl").value),
+      preis: parseFloat(document.getElementById("itemPreis").value),
+      barcode: document.getElementById("itemBarcode").value,
+      thumbnail: bildBase64
+    };
+
+    const { value } = await Storage.get({ key: "inventar" });
+    let inventar = JSON.parse(value || "[]");
+
+    const index = inventar.findIndex(i => i.id === item.id);
+    if (index >= 0) {
+      inventar[index] = item;
+    } else {
+      inventar.push(item);
+    }
+
+    await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
+    closeModal();
+    renderInventar();
+  }window.saveItem = saveItem;
+
+async function deleteItem(id) {
+  const { value } = await Storage.get({ key: "inventar" });
+  const rawInventar = JSON.parse(value || "[]");
+  const inventar = rawInventar.map(repariereArtikelStruktur);
+
+  const neuesInventar = inventar.filter(item => item.id !== id);
+  await Storage.set({ key: "inventar", value: JSON.stringify(neuesInventar) });
+
+  renderInventar();
+}
+window.deleteItem = deleteItem;
+
+
+
+ function repariereArtikelStruktur(roherArtikel) {
+  return {
+    id: Number(roherArtikel.id || roherArtikel.ID || Date.now()),
+    item: roherArtikel.item || roherArtikel.Item || "Unbenannt",
+    kategorie: roherArtikel.kategorie || roherArtikel.Kategoriename || "Sonstiges",
+    anzahl: parseInt(roherArtikel.anzahl || roherArtikel.Anzahl || "0"),
+    preis: parseFloat(roherArtikel.preis || roherArtikel.Preis || "0"),
+    barcode: roherArtikel.barcode || "",
+    thumbnail: roherArtikel.thumbnail || roherArtikel.Thumbnail || ""
+  };
+}
+
+async function renderInventar() {
+  const { value } = await Storage.get({ key: "inventar" });
+  const rawInventar = JSON.parse(value || "[]");
+  const inventar = rawInventar.map(repariereArtikelStruktur);
+
+  const tbody = document.getElementById("inventarTabelle");
+  const filterName = document.getElementById("filterName").value.toLowerCase();
+  const filterKat = document.getElementById("filterKategorie").value.toLowerCase();
+
+  tbody.innerHTML = "";
+
+  inventar
+    .filter(item =>
+      item.item.toLowerCase().includes(filterName) &&
+      item.kategorie.toLowerCase().includes(filterKat)
+    )
+    .forEach(item => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${item.item}</td>
+        <td>${item.kategorie}</td>
+        <td>${item.anzahl}</td>
+        <td>${item.preis.toFixed(2)} €</td>
+        <td>${item.barcode}</td>
+        <td>${item.thumbnail ? `<img src="${item.thumbnail}">` : "-"}</td>
+        <td>
+          <button onclick='openModal(${JSON.stringify(item)})'>✏️</button>
+          <button onclick='deleteItem(${item.id})'>🗑️</button>
+        </td>
+      `;
+      tbody.appendChild(row);
+    });
+}window.renderInventar = renderInventar;
+
+
+
+  async function exportInventar() {
+    const { value } = await Storage.get({ key: "inventar" });
+    const blob = new Blob([value || "[]"], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "inventar_export.json";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
+  async function importInventar(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function (e) {
+    try {
+      const json = JSON.parse(e.target.result);
+      if (!Array.isArray(json)) throw "Ungültige Datei";
+
+      const override = document.getElementById("overrideCheckbox").checked;
+      const { value } = await Storage.get({ key: "inventar" });
+      let inventar = JSON.parse(value || "[]");
+
+      json.forEach(neuerArtikel => {
+        // Prüfung: Hat der Artikel die richtige Struktur?
+        if (typeof neuerArtikel.item !== "string" ||
+            typeof neuerArtikel.kategorie !== "string" ||
+            typeof neuerArtikel.barcode !== "string" ||
+            typeof neuerArtikel.preis !== "number" ||
+            typeof neuerArtikel.anzahl !== "number") {
+          console.warn("⚠️ Ungültiger Artikel übersprungen:", neuerArtikel);
+          return;
+        }
+
+        const index = inventar.findIndex(i => i.barcode === neuerArtikel.barcode);
+        if (index >= 0) {
+          if (override) {
+            inventar[index] = neuerArtikel;
+          } else {
+            inventar[index].anzahl += neuerArtikel.anzahl;
+          }
+        } else {
+          inventar.push(neuerArtikel);
+        }
+      });
+
+      await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
+      renderInventar();
+      alert("✅ Inventar erfolgreich importiert.");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Fehler beim Importieren.");
+    }
+  };
+  reader.readAsText(file);
+}
+window.importInventar = importInventar;
+
+
+  document.addEventListener("DOMContentLoaded", () => {
+    renderInventar();
+  });
+
+</script>
+
+<!-- Navigation -->
+<script src="navigation.js"></script>
+
+</body>
+</html>

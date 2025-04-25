@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventardatenbank</title>
+    <style>
+        body {
+          display: flex;
+          flex-direction: column;
+          height: 100vh;
+          margin: 0;
+        }
+
+        .topbar {
+          background-color: #333;
+          color: white;
+          padding: 10px;
+          text-align: center;
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+          position: relative;
+        }
+
+        .container {
+          display: flex;
+          flex: 1;
+        }
+
+        .sidebar {
+          width: 200px;
+          background-color: #333;
+          padding: 10px;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .sidebar a {
+          display: block;
+          padding: 15px;
+          text-decoration: none;
+          background-color: #444;
+          color: white;
+          font-size: 30px;
+          font-weight: bold;
+          font-family: Arial, sans-serif;
+          margin-bottom: 30px;
+          text-align: center;
+          width: 100%;
+        }
+
+        .sidebar a:hover {
+          background-color: #ddd;
+          color: #000;
+        }
+
+        .content {
+          flex: 1;
+          padding: 10px;
+        }
+
+        iframe {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+
+        .dropdown {
+          position: relative;
+          display: inline-block;
+        }
+
+        .dropdown-content {
+          display: none;
+          position: absolute;
+          right: 0;
+          background-color: white;
+          min-width: 150px;
+          box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+          z-index: 1;
+          padding: 10px;
+        }
+
+        .dropdown-content button {
+          width: 100%;
+          padding: 10px;
+          border: none;
+          background: none;
+          text-align: left;
+          cursor: pointer;
+        }
+
+        .dropdown-content button:hover {
+          background-color: #ddd;
+        }
+
+        .dropdown:hover .dropdown-content {
+          display: block;
+        }
+
+        #importFile {
+          display: none;
+        }
+    </style>
+</head>
+<body>
+<div class="topbar">
+    <div class="dropdown">
+        <button>⚙️</button>
+        <div class="dropdown-content">
+            <button onclick="exportDatabase()">Export Database</button>
+            <form>
+                <input type="file" id="importFile" name="importFile" accept=".sql" onchange="importDatabase()">
+                <button type="button" onclick="triggerFileInput()">Import Database</button>
+            </form>
+            <button onclick="createNewDatabase()">Neue leere DB</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <nav class="sidebar">
+        <a href="ConDB_Inventar.html">Inventar</a>
+        <a href="ConDB_Shop.html">Shop</a>
+        <a href="ConDB_Historie.html">Bestellhistorie</a>
+    </nav>
+    <div class="content">
+        <iframe name="contentFrame" id="contentFrame"></iframe>
+    </div>
+</div>
+
+<script>
+    function triggerFileInput() {
+      document.getElementById('importFile').click();
+    }
+
+    function exportDatabase() {
+      window.location.href = 'exportDatabase.php';
+    }
+
+    function importDatabase() {
+      const fileInput = document.getElementById('importFile');
+      const formData = new FormData();
+      formData.append('importFile', fileInput.files[0]);
+
+      fetch('importDatabase.php', {
+        method: 'POST',
+        body: formData,
+      })
+      .then(response => response.text())
+      .then(data => {
+        alert(data);
+      })
+      .catch(error => console.error('Fehler beim Importieren:', error));
+    }
+
+    function createNewDatabase() {
+      if (confirm("Möchten Sie eine neue leere Datenbank erstellen? Alle bestehenden Daten werden gelöscht!")) {
+        window.location.href = 'neue_DB.php';
+      }
+    }
+
+    // 🧠 Seitenwechsel + letzter Zustand speichern
+    document.addEventListener("DOMContentLoaded", function () {
+      const savedPage = localStorage.getItem("lastPage") || "ConDB_Inventar.html";
+      document.getElementById("contentFrame").src = savedPage;
+
+      document.querySelectorAll(".sidebar a").forEach(link => {
+        link.addEventListener("click", function (event) {
+          event.preventDefault();
+          const ziel = this.getAttribute("href");
+          localStorage.setItem("lastPage", ziel);
+          document.getElementById("contentFrame").src = ziel;
+        });
+      });
+    });
+</script>
+</body>
+</html>

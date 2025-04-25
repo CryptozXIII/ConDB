@@ -1,0 +1,9 @@
+CREATE TABLE Inventar (
+  laufende_Nummer INT NOT NULL AUTO_INCREMENT,
+  Item TEXT NOT NULL,
+  Anzahl INT, 
+  Preis DECIMAL(10,2),
+  Barcode TEXT,
+  Thumbnail BLOB,
+  PRIMARY KEY (laufende_Nummer)
+);
