@@ -4,11 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Shop</title>
+
+    <!-- Import Capacitor Storage -->
+    <script>
+        window.Storage = Capacitor.Plugins.Preferences;
+    </script>
+
     <style>
         body {
           font-family: Arial, sans-serif;
           margin: 0;
-          padding-bottom: 80px; /* Platz für Navigation */
+          padding-bottom: 80px;
         }
         .container {
           padding: 20px;
@@ -52,69 +58,93 @@
         }
     </style>
 </head>
+
 <body>
 
 <div class="container">
     <div class="ort-container">
         <label for="ortInput"><strong>Ort / Messe:</strong></label>
-        <input type="text" id="ortInput" placeholder="z. B. Dokomi" oninput="saveOrt()">
+        <input type="text" id="ortInput" placeholder="z. B. Dokomi">
     </div>
 
     <div class="barcode-container">
-        <input type="text" id="barcodeInput" placeholder="Barcode eingeben und Enter drücken..." onkeyup="checkBarcode(event)">
+        <input type="text" id="barcodeInput" placeholder="Barcode eingeben und Enter drücken...">
     </div>
 
     <ul id="scannedList" class="scanned-list"></ul>
     <p><strong>Gesamtsumme:</strong> <span id="totalPrice">0.00</span> €</p>
 
     <div class="actions">
-        <button class="ok-button" onclick="submitBestellung()">OK</button><br>
-        <button class="cancel-button" onclick="cancel()">Abbrechen</button>
+        <button class="ok-button" id="okButton">OK</button><br>
+        <button class="cancel-button" id="cancelButton">Abbrechen</button>
     </div>
 </div>
 
 <script>
     let scannedItems = {};
 
-    function saveOrt() {
+    async function saveOrt() {
       const ort = document.getElementById("ortInput").value;
-      localStorage.setItem("messeOrt", ort);
+      await Storage.set({ key: "messeOrt", value: ort });
     }
+    window.saveOrt = saveOrt;
 
-    function loadOrt() {
-      const ort = localStorage.getItem("messeOrt");
-      if (ort) {
-        document.getElementById("ortInput").value = ort;
+    async function loadOrt() {
+      const { value } = await Storage.get({ key: "messeOrt" });
+      if (value) {
+        document.getElementById("ortInput").value = value;
       }
     }
+    window.loadOrt = loadOrt;
 
-    function checkBarcode(event) {
-      if (event.key === "Enter") {
-        const barcode = event.target.value.trim();
-        if (!barcode) return;
+    async function checkBarcode(event) {
+  console.log("🧩 checkBarcode() aufgerufen");
 
-        const inventar = JSON.parse(localStorage.getItem("inventar") || "[]");
-        const artikel = inventar.find(a => a.barcode === barcode);
+  if (event.key === "Enter") {
+    console.log("✅ Enter gedrückt!");
 
-        if (!artikel) {
-          alert("⚠️ Kein Artikel mit diesem Barcode gefunden!");
-          return;
-        }
+    const barcodeInputField = event.target;
+    const barcode = barcodeInputField.value.trim().toLowerCase();
+    console.log("🔍 Eingegebener Barcode:", barcode);
 
-        if (scannedItems[barcode]) {
-          scannedItems[barcode].menge++;
-        } else {
-          scannedItems[barcode] = {
-            name: artikel.item,
-            menge: 1,
-            preis: artikel.preis
-          };
-        }
-
-        updateScannedList();
-        event.target.value = "";
-      }
+    if (!barcode) {
+      console.warn("⚠️ Kein Barcode eingegeben.");
+      return;
     }
+
+    const { value } = await Storage.get({ key: "inventar" });
+    const inventar = JSON.parse(value || "[]");
+
+    console.log("📦 Inventar geladen:", inventar);
+
+    const artikel = inventar.find(a => (a.barcode || "").toLowerCase() === barcode);
+
+    if (!artikel) {
+      console.error("🚫 Kein Artikel mit diesem Barcode gefunden!");
+      alert("⚠️ Kein Artikel mit diesem Barcode gefunden!");
+      return;
+    }
+
+    console.log("✅ Artikel gefunden:", artikel);
+
+    if (scannedItems[barcode]) {
+      scannedItems[barcode].menge++;
+      console.log(`🔁 Menge von ${artikel.item} erhöht auf ${scannedItems[barcode].menge}`);
+    } else {
+      scannedItems[barcode] = {
+        name: artikel.item,
+        menge: 1,
+        preis: artikel.preis
+      };
+      console.log(`🆕 Artikel ${artikel.item} neu hinzugefügt`);
+    }
+
+    updateScannedList();
+    barcodeInputField.value = "";
+  }
+}
+window.checkBarcode = checkBarcode;
+
 
     function updateScannedList() {
       const list = document.getElementById("scannedList");
@@ -131,51 +161,56 @@
 
       document.getElementById("totalPrice").textContent = total.toFixed(2);
     }
+    window.updateScannedList = updateScannedList;
 
-    function submitBestellung() {
-  const ort = document.getElementById("ortInput").value.trim();
-  if (!ort) {
-    alert("Bitte gib den Ort der Messe ein.");
-    return;
-  }
+    async function submitBestellung() {
+      const ort = document.getElementById("ortInput").value.trim();
+      if (!ort) {
+        alert("Bitte gib den Ort der Messe ein.");
+        return;
+      }
 
-  if (Object.keys(scannedItems).length === 0) {
-    alert("Es wurden keine Artikel gescannt.");
-    return;
-  }
+      if (Object.keys(scannedItems).length === 0) {
+        alert("Es wurden keine Artikel gescannt.");
+        return;
+      }
 
-  const datum = new Date().toISOString();
-  const bestellungen = JSON.parse(localStorage.getItem("bestellungen") || "[]");
+      const datum = new Date().toISOString();
+      const { value: bestellungenValue } = await Storage.get({ key: "bestellungen" });
+      const bestellungen = JSON.parse(bestellungenValue || "[]");
 
-  const neueBestellung = {
-    id: bestellungen.length + 1,
-    ort: ort,
-    datum: datum,
-    artikel: Object.values(scannedItems).map(item => ({
-      name: item.name,
-      menge: item.menge,
-      preis: item.preis
-    }))
-  };
+      const neueBestellung = {
+        id: bestellungen.length + 1,
+        ort: ort,
+        datum: datum,
+        artikel: Object.values(scannedItems).map(item => ({
+          name: item.name,
+          menge: item.menge,
+          preis: item.preis
+        }))
+      };
 
-  // Speichern in Historie
-  bestellungen.push(neueBestellung);
-  localStorage.setItem("bestellungen", JSON.stringify(bestellungen));
+      bestellungen.push(neueBestellung);
+      await Storage.set({ key: "bestellungen", value: JSON.stringify(bestellungen) });
 
-  // Bestand im Inventar anpassen
-  let inventar = JSON.parse(localStorage.getItem("inventar") || "[]");
-  Object.entries(scannedItems).forEach(([barcode, data]) => {
-    const item = inventar.find(i => i.barcode === barcode);
-    if (item) {
-      item.anzahl = Math.max(0, item.anzahl - data.menge);
+      // Bestand im Inventar anpassen
+      const { value: inventarValue } = await Storage.get({ key: "inventar" });
+      let inventar = JSON.parse(inventarValue || "[]");
+
+      Object.entries(scannedItems).forEach(([barcode, data]) => {
+        const item = inventar.find(i => (i.barcode || "").toLowerCase() === barcode);
+        if (item) {
+          item.anzahl = Math.max(0, item.anzahl - data.menge);
+        }
+      });
+
+      await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
+
+      alert("✅ Bestellung gespeichert & Bestand aktualisiert.");
+      scannedItems = {};
+      updateScannedList();
     }
-  });
-  localStorage.setItem("inventar", JSON.stringify(inventar));
-
-  alert("✅ Bestellung gespeichert & Bestand aktualisiert.");
-  scannedItems = {};
-  updateScannedList();
-}
+    window.submitBestellung = submitBestellung;
 
     function cancel() {
       if (confirm("Einkauf abbrechen und alles zurücksetzen?")) {
@@ -184,11 +219,21 @@
         document.getElementById("barcodeInput").value = "";
       }
     }
+    window.cancel = cancel;
 
-    document.addEventListener("DOMContentLoaded", loadOrt);
+    document.addEventListener("DOMContentLoaded", async () => {
+      console.log("📋 DOM vollständig geladen – EventListener aktivieren");
+      await loadOrt();
+
+      document.getElementById("barcodeInput").addEventListener("keyup", checkBarcode);
+      document.getElementById("ortInput").addEventListener("input", saveOrt);
+      document.getElementById("okButton").addEventListener("click", submitBestellung);
+      document.getElementById("cancelButton").addEventListener("click", cancel);
+    });
 </script>
 
 <!-- Navigation -->
 <script src="navigation.js"></script>
+
 </body>
 </html>
