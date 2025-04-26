@@ -126,7 +126,12 @@
     <label>Item:</label>
     <input type="text" id="itemName" required>
     <label>Kategorie:</label>
-    <input type="text" id="itemKategorie" required>
+    <select id="itemKategorieSelect" onchange="toggleNeueKategorie()">
+      <!-- Kategorien werden dynamisch eingefügt -->
+    </select>
+
+    <input type="text" id="itemKategorieNeu" placeholder="Neue Kategorie eingeben" style="display:none; margin-top:10px;">
+
     <label>Anzahl:</label>
     <input type="number" id="itemAnzahl" required>
     <label>Preis:</label>
@@ -147,6 +152,7 @@
   async function openModal(item = null) {
     document.getElementById("itemModal").style.display = "block";
     document.getElementById("modalTitle").textContent = item ? "Artikel bearbeiten" : "Artikel hinzufügen";
+    await ladeKategorienDropdown();
 
     if (item) {
       document.getElementById("itemId").value = item.id;
@@ -190,33 +196,86 @@
       reader.readAsDataURL(file);
     }
   }
+function toggleNeueKategorie() {
+  const select = document.getElementById("itemKategorieSelect");
+  const neuInput = document.getElementById("itemKategorieNeu");
 
-  async function saveItem() {
-    const id = document.getElementById("itemId").value || Date.now();
-    const item = {
-      id: Number(id),
-      item: document.getElementById("itemName").value,
-      kategorie: document.getElementById("itemKategorie").value,
-      anzahl: parseInt(document.getElementById("itemAnzahl").value),
-      preis: parseFloat(document.getElementById("itemPreis").value),
-      barcode: document.getElementById("itemBarcode").value,
-      thumbnail: bildBase64
-    };
+  if (select.value === "neu") {
+    neuInput.style.display = "block";
+  } else {
+    neuInput.style.display = "none";
+    neuInput.value = "";
+  }
+}
+window.toggleNeueKategorie = toggleNeueKategorie;
 
-    const { value } = await Storage.get({ key: "inventar" });
-    let inventar = JSON.parse(value || "[]");
+async function ladeKategorienDropdown() {
+  const select = document.getElementById("itemKategorieSelect");
+  select.innerHTML = "";
 
-    const index = inventar.findIndex(i => i.id === item.id);
-    if (index >= 0) {
-      inventar[index] = item;
-    } else {
-      inventar.push(item);
+  const { value } = await Storage.get({ key: "inventar" });
+  const inventar = JSON.parse(value || "[]");
+
+  const kategorienSet = new Set();
+  inventar.forEach(item => {
+    if (item.kategorie) {
+      kategorienSet.add(item.kategorie.trim());
     }
+  });
 
-    await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
-    closeModal();
-    renderInventar();
-  }window.saveItem = saveItem;
+  [...kategorienSet].sort().forEach(kat => {
+    const option = document.createElement("option");
+    option.value = kat;
+    option.textContent = kat;
+    select.appendChild(option);
+  });
+
+  const neueOption = document.createElement("option");
+  neueOption.value = "neu";
+  neueOption.textContent = "➕ Neue Kategorie hinzufügen...";
+  select.appendChild(neueOption);
+}
+window.ladeKategorienDropdown = ladeKategorienDropdown;
+
+ async function saveItem() {
+  const id = document.getElementById("itemId").value || Date.now();
+
+  // 👉 Kategorie ermitteln
+  let kategorie = document.getElementById("itemKategorieSelect").value;
+  if (kategorie === "neu") {
+    kategorie = document.getElementById("itemKategorieNeu").value.trim();
+    if (!kategorie) {
+      alert("Bitte gib eine neue Kategorie ein!");
+      return;
+    }
+  }
+
+  const item = {
+    id: Number(id),
+    item: document.getElementById("itemName").value.trim(),
+    kategorie: kategorie,
+    anzahl: parseInt(document.getElementById("itemAnzahl").value),
+    preis: parseFloat(document.getElementById("itemPreis").value),
+    barcode: document.getElementById("itemBarcode").value.trim(),
+    thumbnail: bildBase64
+  };
+
+  const { value } = await Storage.get({ key: "inventar" });
+  let inventar = JSON.parse(value || "[]");
+
+  const index = inventar.findIndex(i => i.id === item.id);
+  if (index >= 0) {
+    inventar[index] = item;
+  } else {
+    inventar.push(item);
+  }
+
+  await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
+  closeModal();
+  renderInventar();
+}
+window.saveItem = saveItem;
+
 
 async function deleteItem(id) {
   const { value } = await Storage.get({ key: "inventar" });
