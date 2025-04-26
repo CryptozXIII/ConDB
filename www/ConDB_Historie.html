@@ -2,7 +2,12 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bestell-Historie</title>
+    <script>
+        window.Storage = Capacitor.Plugins.Preferences;
+    </script>
+
     <style>
         body {
           font-family: Arial, sans-serif;
@@ -57,49 +62,69 @@
 <body>
 
 <h1>Bestell-Historie</h1>
-<div id="history"></div> <!-- ❗️Fehlte bisher -->
+
+<table id="historyTable">
+    <thead>
+    <tr>
+        <th>Artikel</th>
+        <th>Menge</th>
+        <th>Preis (€)</th>
+        <th>Gesamt (€)</th>
+        <th>Ort</th>
+        <th>Datum</th>
+        <th>Löschen</th>
+    </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
 <div class="actions">
     <button class="delete-button" onclick="clearAll()">🗑 Alles löschen</button>
     <button class="export-button" onclick="exportHistory()">📤 Exportieren</button>
 </div>
+
 <script>
-    function loadHistory() {
-  const data = JSON.parse(localStorage.getItem("bestellungen") || "[]");
-  const div = document.getElementById("history");
-  div.innerHTML = "";
+    async function loadHistory() {
+      const { value } = await Storage.get({ key: "bestellungen" });
+      const data = JSON.parse(value || "[]");
+      const tbody = document.querySelector("#historyTable tbody");
+      tbody.innerHTML = "";
 
-  data.slice().reverse().forEach(bestellung => {
-    const box = document.createElement("div");
-    const datum = new Date(bestellung.datum).toLocaleString();
+      data.slice().reverse().forEach((bestellung, index) => {
+        bestellung.artikel.forEach(item => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${item.name}</td>
+            <td>${item.menge}</td>
+            <td>${item.preis.toFixed(2)}</td>
+            <td>${(item.menge * item.preis).toFixed(2)}</td>
+            <td>${bestellung.ort}</td>
+            <td>${new Date(bestellung.datum).toLocaleString()}</td>
+            <td><button onclick="deleteEntry(${data.length - 1 - index})">🗑</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      });
+    }
 
-    box.innerHTML = `
-      <h3>Bestellung #${bestellung.id} – ${datum} (${bestellung.ort})</h3>
-      <ul>
-        ${bestellung.artikel.map(a =>
-          `<li>${a.name} – Menge: ${a.menge} – Preis: ${(a.preis * a.menge).toFixed(2)} €</li>`
-        ).join("")}
-      </ul>
-    `;
-    div.appendChild(box);
-  });
-}
-
-    function deleteEntry(index) {
-      let data = JSON.parse(localStorage.getItem("bestellungen") || "[]");
+    async function deleteEntry(index) {
+      const { value } = await Storage.get({ key: "bestellungen" });
+      let data = JSON.parse(value || "[]");
       data.splice(index, 1);
-      localStorage.setItem("bestellungen", JSON.stringify(data));
+      await Storage.set({ key: "bestellungen", value: JSON.stringify(data) });
       loadHistory();
     }
 
-    function clearAll() {
+    async function clearAll() {
       if (confirm("Willst du wirklich alle Einträge löschen?")) {
-        localStorage.removeItem("bestellungen");
+        await Storage.remove({ key: "bestellungen" });
         loadHistory();
       }
     }
 
-    function exportHistory() {
-      const data = localStorage.getItem("bestellungen") || "[]";
+    async function exportHistory() {
+      const { value } = await Storage.get({ key: "bestellungen" });
+      const data = value || "[]";
       const blob = new Blob([data], { type: "application/json" });
       const url = URL.createObjectURL(blob);
 
@@ -112,10 +137,10 @@
       URL.revokeObjectURL(url);
     }
 
-</script>
-<script src="navigation.js"></script>
-<script>
     document.addEventListener("DOMContentLoaded", loadHistory);
 </script>
+
+<!-- Navigation -->
+<script src="navigation.js"></script>
 </body>
 </html>
