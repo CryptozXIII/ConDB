@@ -380,10 +380,13 @@ async function renameKategorie(alteKategorie) {
   await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
 
   alert(`✅ Kategorie "${alteKategorie}" wurde erfolgreich in "${neueKategorie}" umbenannt.`);
-  openKategorieVerwalten(); // Liste neu aufbauen
-  ladeKategorienDropdown(); // Dropdown aktualisieren
+
+  await ladeKategorienDropdown();   // Kategorien Dropdown neu laden
+  await renderInventar();            // Inventartabelle neu aufbauen
+  openKategorieVerwalten();           // Verwaltung neu öffnen
 }
 window.renameKategorie = renameKategorie;
+
 
 function closeKategorieVerwalten() {
   document.getElementById("kategorieVerwalten").style.display = "none";
