@@ -102,6 +102,7 @@
   <input type="text" id="filterName" placeholder="🔍 Artikelname" oninput="renderInventar()">
   <input type="text" id="filterKategorie" placeholder="🔍 Kategorie" oninput="renderInventar()">
 </div>
+<button type="button" onclick="openKategorieVerwalten()" style="margin-top:10px;">🛠 Kategorien verwalten</button>
 
 <table>
   <thead>
@@ -145,6 +146,11 @@
     <button type="button" onclick="saveItem()">💾 Speichern</button>
     <button type="button" onclick="closeModal()">❌ Abbrechen</button>
   </div>
+</div>
+<div id="kategorieVerwalten" style="display:none; margin-top:20px; padding:10px; border:1px solid #ccc;">
+  <h3>Kategorien verwalten</h3>
+  <ul id="kategorienListe"></ul>
+  <button onclick="closeKategorieVerwalten()">Fertig</button>
 </div>
 
 <script type="module">
@@ -289,6 +295,100 @@ async function deleteItem(id) {
 }
 window.deleteItem = deleteItem;
 
+async function openKategorieVerwalten() {
+  console.log("🛠 Kategorienverwaltung wird geöffnet...");
+  const { value } = await Storage.get({ key: "inventar" });
+  const inventar = JSON.parse(value || "[]");
+
+  const kategorienSet = new Set();
+  inventar.forEach(item => {
+    if (item.kategorie) {
+      kategorienSet.add(item.kategorie.trim());
+    }
+  });
+  console.log("📋 Gefundene Kategorien:", [...kategorienSet]);
+
+  const liste = document.getElementById("kategorienListe");
+  liste.innerHTML = "";
+
+  [...kategorienSet].sort().forEach(kat => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      ${kat}
+      <button onclick="deleteKategorie('${kat}')">🗑 Löschen</button>
+      <button onclick="renameKategorie('${kat}')">✏️ Umbenennen</button>
+    `;
+    liste.appendChild(li);
+  });
+  const verwalten = document.getElementById("kategorieVerwalten");
+  if (verwalten) {
+    verwalten.style.display = "block";
+  } else {
+    console.error("❌ kategorieVerwalten nicht gefunden!");
+  }
+  document.getElementById("kategorieVerwalten").style.display = "block";
+}
+window.openKategorieVerwalten = openKategorieVerwalten;
+
+async function deleteKategorie(katName) {
+  if (!confirm(`Willst du die Kategorie "${katName}" wirklich löschen?`)) return;
+
+  const { value } = await Storage.get({ key: "inventar" });
+  let inventar = JSON.parse(value || "[]");
+
+  const benutzt = inventar.some(item => item.kategorie === katName);
+  if (benutzt) {
+    alert(`❌ Kategorie "${katName}" wird noch von Artikeln benutzt und kann nicht gelöscht werden.`);
+    return;
+  }
+
+  alert(`✅ Kategorie "${katName}" gelöscht (automatisch bei nächstem Listenaufbau entfernt).`);
+  openKategorieVerwalten(); // Liste neu aufbauen
+  ladeKategorienDropdown(); // Dropdown aktualisieren
+}
+window.deleteKategorie = deleteKategorie;
+
+async function renameKategorie(alteKategorie) {
+  const neueKategorie = prompt(`Gib den neuen Namen für "${alteKategorie}" ein:`).trim();
+  if (!neueKategorie) {
+    alert("⚠️ Kein neuer Name eingegeben.");
+    return;
+  }
+
+  if (alteKategorie === neueKategorie) {
+    alert("⚠️ Der neue Name ist gleich dem alten.");
+    return;
+  }
+
+  const { value } = await Storage.get({ key: "inventar" });
+  let inventar = JSON.parse(value || "[]");
+
+  const bereitsVorhanden = inventar.some(item => item.kategorie === neueKategorie);
+  if (bereitsVorhanden) {
+    if (!confirm(`⚠️ Es gibt bereits Artikel mit der Kategorie "${neueKategorie}". Trotzdem zusammenführen?`)) {
+      return;
+    }
+  }
+
+  // Alle Artikel anpassen
+  inventar.forEach(item => {
+    if (item.kategorie === alteKategorie) {
+      item.kategorie = neueKategorie;
+    }
+  });
+
+  await Storage.set({ key: "inventar", value: JSON.stringify(inventar) });
+
+  alert(`✅ Kategorie "${alteKategorie}" wurde erfolgreich in "${neueKategorie}" umbenannt.`);
+  openKategorieVerwalten(); // Liste neu aufbauen
+  ladeKategorienDropdown(); // Dropdown aktualisieren
+}
+window.renameKategorie = renameKategorie;
+
+function closeKategorieVerwalten() {
+  document.getElementById("kategorieVerwalten").style.display = "none";
+}
+window.closeKategorieVerwalten = closeKategorieVerwalten;
 
 
  function repariereArtikelStruktur(roherArtikel) {
