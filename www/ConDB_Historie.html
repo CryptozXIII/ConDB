@@ -98,19 +98,19 @@ th {
           const box = document.createElement("div");
           box.style.marginBottom = "30px";
 
-          // 🧠 Berechne Gesamtsumme dieser Bestellung
           let gesamtsumme = 0;
           bestellung.artikel.forEach(item => {
             gesamtsumme += item.menge * item.preis;
           });
 
-          // ✏️ Erstelle Kopfzeile (Bestellnummer, Ort, Datum, Gesamtsumme)
           const header = document.createElement("h3");
-          header.innerHTML = `Bestellung #${bestellung.id} – ${new Date(bestellung.datum).toLocaleString()} (${bestellung.ort})<br>
-          <small>Gesamtsumme: ${gesamtsumme.toFixed(2)} €</small>`;
+          header.innerHTML = `
+            Bestellung #${bestellung.id} – ${new Date(bestellung.datum).toLocaleString()} (${bestellung.ort})
+            <button onclick='deleteBestellung(${bestellung.id})' style="margin-left:10px;">🗑️ Löschen</button><br>
+            <small>Gesamtsumme: ${gesamtsumme.toFixed(2)} €</small>
+          `;
           box.appendChild(header);
 
-          // ✏️ Erstelle Tabelle
           const table = document.createElement("table");
           table.style.width = "100%";
           table.style.borderCollapse = "collapse";
@@ -136,28 +136,40 @@ th {
               `).join("")}
             </tbody>
           `;
-
           box.appendChild(table);
           historyDiv.appendChild(box);
         });
     }
     window.loadHistory = loadHistory;
 
+    async function deleteBestellung(id) {
+      if (!confirm(`❗ Möchtest du die Bestellung #${id} wirklich löschen?`)) return;
 
-        async function deleteEntry(index) {
-          const { value } = await Storage.get({ key: "bestellungen" });
-          let data = JSON.parse(value || "[]");
-          data.splice(index, 1);
-          await Storage.set({ key: "bestellungen", value: JSON.stringify(data) });
-          loadHistory();
-        }
+      const { value } = await Storage.get({ key: "bestellungen" });
+      let bestellungen = JSON.parse(value || "[]");
 
-        async function clearAll() {
-          if (confirm("Willst du wirklich alle Einträge löschen?")) {
-            await Storage.remove({ key: "bestellungen" });
-            loadHistory();
-          }
-        }
+      // Bestellungen neu filtern
+      bestellungen = bestellungen.filter(b => b.id !== id);
+
+      // IDs neu vergeben
+      bestellungen.forEach((b, index) => {
+        b.id = index + 1;
+      });
+
+await Storage.set({ key: "bestellungen", value: JSON.stringify(bestellungen) });
+
+      alert("✅ Bestellung gelöscht und Nummerierung angepasst.");
+      loadHistory();
+    }
+    window.deleteBestellung = deleteBestellung;
+
+    async function clearAll() {
+      if (confirm("Willst du wirklich alle Einträge löschen?")) {
+        await Storage.remove({ key: "bestellungen" });
+        loadHistory();
+      }
+    }
+    window.clearAll = clearAll;
 
     async function exportHistory() {
       const { value } = await Storage.get({ key: "bestellungen" });
@@ -185,9 +197,9 @@ th {
     }
     window.exportHistory = exportHistory;
 
-
-        document.addEventListener("DOMContentLoaded", loadHistory);
+    document.addEventListener("DOMContentLoaded", loadHistory);
 </script>
+
 
 <!-- Navigation -->
 <script src="navigation.js"></script>
