@@ -147,22 +147,78 @@
 window.checkBarcode = checkBarcode;
 
 
-    function updateScannedList() {
-      const list = document.getElementById("scannedList");
-      list.innerHTML = "";
-      let total = 0;
+function updateScannedList() {
+  const list = document.getElementById("scannedList");
+  list.innerHTML = "";
+  let total = 0;
 
-      Object.entries(scannedItems).forEach(([barcode, data]) => {
-        const li = document.createElement("li");
-        const gesamt = data.menge * data.preis;
-        total += gesamt;
-        li.textContent = `${data.name} – Menge: ${data.menge} – Gesamt: ${gesamt.toFixed(2)} €`;
-        list.appendChild(li);
-      });
+  Object.entries(scannedItems).forEach(([barcode, data]) => {
+    const li = document.createElement("li");
+    const gesamt = data.menge * data.preis;
+    total += gesamt;
 
-      document.getElementById("totalPrice").textContent = total.toFixed(2);
+    li.innerHTML = `
+      ${data.name}<br>
+      <button onclick="decreaseQuantity('${barcode}')">➖</button>
+      <input type="number" min="1" value="${data.menge}" onchange="editQuantity('${barcode}', this.value)" style="width:50px; text-align:center;">
+      <button onclick="increaseQuantity('${barcode}')">➕</button>
+      <button onclick="deleteItem('${barcode}')" style="margin-left:10px;">❌</button>
+      <div style="margin-top:5px; font-size:small;">${gesamt.toFixed(2)} €</div>
+    `;
+
+    list.appendChild(li);
+  });
+
+  document.getElementById("totalPrice").textContent = total.toFixed(2);
+}
+window.updateScannedList = updateScannedList;
+
+
+
+function increaseQuantity(barcode) {
+  if (scannedItems[barcode]) {
+    scannedItems[barcode].menge++;
+    updateScannedList();
+  }
+}
+window.increaseQuantity = increaseQuantity;
+
+function decreaseQuantity(barcode) {
+  if (scannedItems[barcode]) {
+    if (scannedItems[barcode].menge > 1) {
+      scannedItems[barcode].menge--;
+      updateScannedList();
+    } else {
+      if (confirm("❗ Möchtest du diesen Artikel aus der Liste entfernen?")) {
+        delete scannedItems[barcode];
+        updateScannedList();
+      }
     }
-    window.updateScannedList = updateScannedList;
+  }
+}
+window.decreaseQuantity = decreaseQuantity;
+
+function editQuantity(barcode, value) {
+  const neueMenge = parseInt(value);
+  if (isNaN(neueMenge) || neueMenge < 1) {
+    if (confirm("❗ Ungültige Menge. Möchtest du den Artikel löschen?")) {
+      delete scannedItems[barcode];
+    }
+  } else {
+    scannedItems[barcode].menge = neueMenge;
+  }
+  updateScannedList();
+}
+window.editQuantity = editQuantity;
+
+function deleteItem(barcode) {
+  if (confirm("❗ Möchtest du diesen Artikel aus der Einkaufsliste entfernen?")) {
+    delete scannedItems[barcode];
+    updateScannedList();
+  }
+}
+window.deleteItem = deleteItem;
+
 
     async function submitBestellung() {
       const ort = document.getElementById("ortInput").value.trim();
