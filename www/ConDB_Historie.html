@@ -57,99 +57,136 @@
           color: white;
           border: none;
         }
+
+table, th, td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: center;
+}
+th {
+  background-color: #f4f4f4;
+}
+
     </style>
 </head>
 <body>
 
 <h1>Bestell-Historie</h1>
 
-<table id="historyTable">
-    <thead>
-    <tr>
-        <th>Artikel</th>
-        <th>Menge</th>
-        <th>Preis (€)</th>
-        <th>Gesamt (€)</th>
-        <th>Ort</th>
-        <th>Datum</th>
-        <th>Löschen</th>
-    </tr>
-    </thead>
-    <tbody></tbody>
-</table>
+<!-- Hier wird die Bestellhistorie reingeladen -->
+<div id="history"></div>
 
-<div class="actions">
+<!-- Aktionen -->
+<div class="actions" style="margin-top: 20px; text-align: center;">
     <button class="delete-button" onclick="clearAll()">🗑 Alles löschen</button>
     <button class="export-button" onclick="exportHistory()">📤 Exportieren</button>
 </div>
 
+
 <script>
     async function loadHistory() {
       const { value } = await Storage.get({ key: "bestellungen" });
-      const data = JSON.parse(value || "[]");
-      const tbody = document.querySelector("#historyTable tbody");
-      tbody.innerHTML = "";
+      const bestellungen = JSON.parse(value || "[]");
 
-      data.slice().reverse().forEach((bestellung, index) => {
-        bestellung.artikel.forEach(item => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${item.name}</td>
-            <td>${item.menge}</td>
-            <td>${item.preis.toFixed(2)}</td>
-            <td>${(item.menge * item.preis).toFixed(2)}</td>
-            <td>${bestellung.ort}</td>
-            <td>${new Date(bestellung.datum).toLocaleString()}</td>
-            <td><button onclick="deleteEntry(${data.length - 1 - index})">🗑</button></td>
+      const historyDiv = document.getElementById("history");
+      historyDiv.innerHTML = "";
+
+      bestellungen
+        .slice()
+        .reverse()
+        .forEach(bestellung => {
+          const box = document.createElement("div");
+          box.style.marginBottom = "30px";
+
+          // 🧠 Berechne Gesamtsumme dieser Bestellung
+          let gesamtsumme = 0;
+          bestellung.artikel.forEach(item => {
+            gesamtsumme += item.menge * item.preis;
+          });
+
+          // ✏️ Erstelle Kopfzeile (Bestellnummer, Ort, Datum, Gesamtsumme)
+          const header = document.createElement("h3");
+          header.innerHTML = `Bestellung #${bestellung.id} – ${new Date(bestellung.datum).toLocaleString()} (${bestellung.ort})<br>
+          <small>Gesamtsumme: ${gesamtsumme.toFixed(2)} €</small>`;
+          box.appendChild(header);
+
+          // ✏️ Erstelle Tabelle
+          const table = document.createElement("table");
+          table.style.width = "100%";
+          table.style.borderCollapse = "collapse";
+          table.style.marginTop = "10px";
+
+          table.innerHTML = `
+            <thead>
+              <tr>
+                <th>Artikel</th>
+                <th>Kategorie</th>
+                <th>Menge</th>
+                <th>Einzelpreis (€)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${bestellung.artikel.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td>${item.kategorie || "-"}</td>
+                  <td>${item.menge}</td>
+                  <td>${item.preis.toFixed(2)}</td>
+                </tr>
+              `).join("")}
+            </tbody>
           `;
-          tbody.appendChild(tr);
+
+          box.appendChild(table);
+          historyDiv.appendChild(box);
         });
-      });
     }
+    window.loadHistory = loadHistory;
 
-    async function deleteEntry(index) {
+
+        async function deleteEntry(index) {
+          const { value } = await Storage.get({ key: "bestellungen" });
+          let data = JSON.parse(value || "[]");
+          data.splice(index, 1);
+          await Storage.set({ key: "bestellungen", value: JSON.stringify(data) });
+          loadHistory();
+        }
+
+        async function clearAll() {
+          if (confirm("Willst du wirklich alle Einträge löschen?")) {
+            await Storage.remove({ key: "bestellungen" });
+            loadHistory();
+          }
+        }
+
+    async function exportHistory() {
       const { value } = await Storage.get({ key: "bestellungen" });
-      let data = JSON.parse(value || "[]");
-      data.splice(index, 1);
-      await Storage.set({ key: "bestellungen", value: JSON.stringify(data) });
-      loadHistory();
-    }
+      const data = value || "[]";
 
-    async function clearAll() {
-      if (confirm("Willst du wirklich alle Einträge löschen?")) {
-        await Storage.remove({ key: "bestellungen" });
-        loadHistory();
+      if (data === "[]") {
+        alert("⚠️ Es gibt keine Bestellungen zum Exportieren!");
+        return;
       }
+
+      console.log("📦 Exportierte Daten:", data);
+
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "bestellungen_export.json";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert("✅ Export-Vorgang abgeschlossen!");
     }
-
-async function exportHistory() {
-  const { value } = await Storage.get({ key: "bestellungen" });
-  const data = value || "[]";
-
-  if (data === "[]") {
-    alert("⚠️ Es gibt keine Bestellungen zum Exportieren!");
-    return;
-  }
-
-  console.log("📦 Exportierte Daten:", data);
-
-  const blob = new Blob([data], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "bestellungen_export.json";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-
-  alert("✅ Export-Vorgang abgeschlossen!");
-}
-window.exportHistory = exportHistory;
+    window.exportHistory = exportHistory;
 
 
-    document.addEventListener("DOMContentLoaded", loadHistory);
+        document.addEventListener("DOMContentLoaded", loadHistory);
 </script>
 
 <!-- Navigation -->

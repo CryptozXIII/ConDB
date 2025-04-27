@@ -134,7 +134,8 @@
       scannedItems[barcode] = {
         name: artikel.item,
         menge: 1,
-        preis: artikel.preis
+        preis: artikel.preis,
+        kategorie: artikel.kategorie
       };
       console.log(`🆕 Artikel ${artikel.item} neu hinzugefügt`);
     }
@@ -186,7 +187,8 @@ window.checkBarcode = checkBarcode;
         artikel: Object.values(scannedItems).map(item => ({
           name: item.name,
           menge: item.menge,
-          preis: item.preis
+          preis: item.preis,
+          kategorie: item.kategorie
         }))
       };
 
