@@ -182,6 +182,7 @@
       bildBase64 = "";
       document.getElementById("bildPreview").style.display = "none";
     }
+    toggleNeueKategorie();
   }window.openModal = openModal;
 
   function closeModal() {
@@ -201,7 +202,8 @@
       };
       reader.readAsDataURL(file);
     }
-  }
+  }window.closeModal = closeModal;
+
 function toggleNeueKategorie() {
   const select = document.getElementById("itemKategorieSelect");
   const neuInput = document.getElementById("itemKategorieNeu");
@@ -210,7 +212,6 @@ function toggleNeueKategorie() {
     neuInput.style.display = "block";
   } else {
     neuInput.style.display = "none";
-    neuInput.value = "";
   }
 }
 window.toggleNeueKategorie = toggleNeueKategorie;
@@ -240,8 +241,17 @@ async function ladeKategorienDropdown() {
   neueOption.value = "neu";
   neueOption.textContent = "➕ Neue Kategorie hinzufügen...";
   select.appendChild(neueOption);
+
+  // Standard auswählen (damit toggleNeueKategorie greift)
+if (kategorienSet.size === 0) {
+  select.value = "neu";
+} else {
+  select.value = [...kategorienSet][0];
+}
+toggleNeueKategorie(); // ← wichtig: direkt hier aufrufen
 }
 window.ladeKategorienDropdown = ladeKategorienDropdown;
+
 
  async function saveItem() {
   const id = document.getElementById("itemId").value || Date.now();
