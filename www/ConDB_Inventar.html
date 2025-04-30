@@ -442,18 +442,33 @@ async function renderInventar() {
 
 
 
-  async function exportInventar() {
-    const { value } = await Storage.get({ key: "inventar" });
-    const blob = new Blob([value || "[]"], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "inventar_export.json";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+async function exportInventar() {
+  const { value } = await Storage.get({ key: "inventar" });
+  const data = value || "[]";
+
+  if (data === "[]") {
+    alert("⚠️ Es gibt keine Artikel zum Exportieren!");
+    return;
   }
+
+  console.log("✅ JSON-Vorschau:", JSON.stringify(JSON.parse(data), null, 2));
+
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "inventar_export.json";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  alert("✅ Inventar erfolgreich exportiert!");
+}
+window.exportInventar = exportInventar;
+
+
 
   async function importInventar(input) {
   const file = input.files[0];

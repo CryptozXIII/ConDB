@@ -52,11 +52,13 @@
           border: none;
         }
 
-        .export-button {
-          background-color: #4CAF50;
-          color: white;
-          border: none;
-        }
+.export-button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  display: inline-block;
+}
+
 
 table, th, td {
   border: 1px solid #ccc;
@@ -73,15 +75,14 @@ th {
 
 <h1>Bestell-Historie</h1>
 
-<!-- Hier wird die Bestellhistorie reingeladen -->
-<div id="history"></div>
-
 <!-- Aktionen -->
 <div class="actions" style="margin-top: 20px; text-align: center;">
     <button class="delete-button" onclick="clearAll()">🗑 Alles löschen</button>
     <button class="export-button" onclick="exportHistory()">📤 Exportieren</button>
 </div>
 
+<!-- Hier wird die Bestellhistorie reingeladen -->
+<div id="history"></div>
 
 <script>
     async function loadHistory() {
@@ -171,31 +172,35 @@ await Storage.set({ key: "bestellungen", value: JSON.stringify(bestellungen) });
     }
     window.clearAll = clearAll;
 
-    async function exportHistory() {
-      const { value } = await Storage.get({ key: "bestellungen" });
-      const data = value || "[]";
+async function exportHistory() {
+  const { value } = await Storage.get({ key: "bestellungen" });
+  const data = value || "[]";
 
-      if (data === "[]") {
-        alert("⚠️ Es gibt keine Bestellungen zum Exportieren!");
-        return;
-      }
+  if (data === "[]") {
+    alert("⚠️ Es gibt keine Bestellungen zum Exportieren!");
+    return;
+  }
 
-      console.log("📦 Exportierte Daten:", data);
+  const parsed = JSON.parse(data);
 
-      const blob = new Blob([data], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
+  console.log("📤 Exportierte Bestellungen (Objekt):", parsed);
+  console.log("🧾 JSON-Vorschau:\n", JSON.stringify(parsed, null, 2));
 
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "bestellungen_export.json";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
 
-      alert("✅ Export-Vorgang abgeschlossen!");
-    }
-    window.exportHistory = exportHistory;
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "bestellungen_export.json";
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  alert("✅ Export-Vorgang abgeschlossen!");
+}
+window.exportHistory = exportHistory;
+
 
     document.addEventListener("DOMContentLoaded", loadHistory);
 </script>
