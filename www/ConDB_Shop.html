@@ -9,6 +9,7 @@
     <script>
         window.Storage = Capacitor.Plugins.Preferences;
     </script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 
     <style>
         body {
@@ -70,6 +71,8 @@
     <div class="barcode-container">
         <input type="text" id="barcodeInput" placeholder="Barcode eingeben und Enter drücken...">
     </div>
+    <button onclick="starteScanner()">📷 Kamera</button>
+    <div id="qr-reader" style="width: 300px; margin-top: 10px;"></div>
 
     <ul id="scannedList" class="scanned-list"></ul>
     <p><strong>Gesamtsumme:</strong> <span id="totalPrice">0.00</span> €</p>
@@ -145,6 +148,38 @@
   }
 }
 window.checkBarcode = checkBarcode;
+
+
+async function starteScanner() {
+  const qrReader = new Html5Qrcode("qr-reader");
+
+  try {
+    await qrReader.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+(decodedText, decodedResult) => {
+  console.log("📸 Gescannter Code:", decodedText);
+  const input = document.getElementById("barcodeInput");
+  input.value = decodedText;
+
+  // Scanner stoppen & UI aufräumen
+  qrReader.stop();
+  document.getElementById("qr-reader").innerHTML = "";
+
+  // 👉 Simuliere Enter-Taste um checkBarcode() auszulösen
+  const enterEvent = new KeyboardEvent("keyup", { key: "Enter" });
+  input.dispatchEvent(enterEvent);
+},
+      (errorMessage) => {
+        // Nur zum Debuggen
+        console.log("Scan-Fehler:", errorMessage);
+      }
+    );
+  } catch (err) {
+    alert("❌ Kamera konnte nicht geöffnet werden: " + err);
+  }
+}
+window.starteScanner = starteScanner;
 
 
 function updateScannedList() {
